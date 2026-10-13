@@ -4,7 +4,7 @@
     Blocks taser stun by intercepting the remote / effect
 ]]
 
-local Services = require(script.Parent.Parent.Parent.Core.Services)
+local Services = require("Core/Services.lua")
 local RunService = Services.RunService
 local ReplicatedStorage = Services.ReplicatedStorage
 local LocalPlayer = Services.LocalPlayer
