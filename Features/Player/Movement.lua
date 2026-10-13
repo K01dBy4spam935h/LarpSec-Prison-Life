@@ -4,7 +4,7 @@
     Speed (CFrame method for AC bypass), Jump, InfJump, Noclip, Fly, VehicleFly, Invis
 ]]
 
-local Services = require(script.Parent.Parent.Parent.Core.Services)
+local Services = require("Core/Services.lua")
 local RunService = Services.RunService
 local UserInputService = Services.UserInputService
 local Players = Services.Players
