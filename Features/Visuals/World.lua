@@ -4,7 +4,7 @@
     Fullbright + FPS Booster
 ]]
 
-local Services = require(script.Parent.Parent.Parent.Core.Services)
+local Services = require("Core/Services.lua")
 local Lighting = Services.Lighting
 local Workspace = Services.Workspace
 
