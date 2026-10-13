@@ -4,23 +4,23 @@
     Entry point: wires config, features, UI
 ]]
 
-local Services = require(script.Core.Services)
-local ConfigManager = require(script.Config.Manager)
-local Library = require(script.UI.Library)
+local Services = require("Core/Services.lua")
+local ConfigManager = require("Config/Manager.lua")
+local Library = require("UI/Library.lua")
 
-local SilentAim = require(script.Features.Combat.SilentAim)
-local Aimbot = require(script.Features.Combat.Aimbot)
-local Hitbox = require(script.Features.Combat.Hitbox)
-local AntiTase = require(script.Features.Combat.AntiTase)
-local GunHook = require(script.Features.Combat.GunHook)
+local SilentAim = require("Features/Combat/SilentAim.lua")
+local Aimbot = require("Features/Combat/Aimbot.lua")
+local Hitbox = require("Features/Combat/Hitbox.lua")
+local AntiTase = require("Features/Combat/AntiTase.lua")
+local GunHook = require("Features/Combat/GunHook.lua")
 
-local ESP = require(script.Features.Visuals.ESP)
-local World = require(script.Features.Visuals.World)
+local ESP = require("Features/Visuals/ESP.lua")
+local World = require("Features/Visuals/World.lua")
 
-local Movement = require(script.Features.Player.Movement)
+local Movement = require("Features/Player/Movement.lua")
 
-local HUD = require(script.Features.Utility.HUD)
-local GunGrabber = require(script.Features.Utility.GunGrabber)
+local HUD = require("Features/Utility/HUD.lua")
+local GunGrabber = require("Features/Utility/GunGrabber.lua")
 
 -- Init config
 ConfigManager:Init()
