@@ -3,7 +3,7 @@
     Features/Combat/SilentAim.lua
 ]]
 
-local Services = require(script.Parent.Parent.Parent.Core.Services)
+local Services = require("Core/Services.lua")
 local RunService = Services.RunService
 local Players = Services.Players
 local Camera = Services.Camera
