@@ -4,7 +4,7 @@
     TP to known gun locations then return
 ]]
 
-local Services = require(script.Parent.Parent.Parent.Core.Services)
+local Services = require("Core/Services.lua")
 local LocalPlayer = Services.LocalPlayer
 
 local GunGrabber = {}
