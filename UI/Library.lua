@@ -4,7 +4,7 @@
     Custom Rayfield-inspired UI framework (no external loadstring)
 ]]
 
-local Services = require(script.Parent.Parent.Core.Services)
+local Services = require("Core/Services.lua")
 local TweenService = Services.TweenService
 local UserInputService = Services.UserInputService
 local Players = Services.Players
