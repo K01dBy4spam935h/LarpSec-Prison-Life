@@ -7,7 +7,7 @@
     loadstring(game:HttpGet("https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/PrisonLife/Loader.lua"))()
 ]]
 
-local BASE_URL = "https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/PrisonLife/"
+local BASE_URL = "https://raw.githubusercontent.com/K01dBy4spam935h/LarpSec-Prison-Life/refs/heads/main/"
 
 -- In-memory module cache so require() works without filesystem
 local cache = {}
