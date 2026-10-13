@@ -4,8 +4,8 @@
     Hooks shooting remotes / mouse hit for silent aim
 ]]
 
-local Services = require(script.Parent.Parent.Parent.Core.Services)
-local SilentAim = require(script.Parent.SilentAim)
+local Services = require("Core/Services.lua")
+local SilentAim = require("Features/Combat/SilentAim.lua")
 
 local GunHook = {}
 GunHook.Connections = {}
