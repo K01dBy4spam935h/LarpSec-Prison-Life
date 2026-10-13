@@ -1,13 +1,13 @@
 --[[
     LarpSec - Prison Life v1
     Loader.lua
-    Single loadstring entry. Host the PrisonLife folder on GitHub/raw and point BASE_URL at it.
+    Single loadstring entry.
 
     Usage:
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/PrisonLife/Loader.lua"))()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/K01dBy4spam935h/LarpSec-Prison-Life/main/Loader.lua"))()
 ]]
 
-local BASE_URL = "https://raw.githubusercontent.com/K01dBy4spam935h/LarpSec-Prison-Life/refs/heads/main/"
+local BASE_URL = "https://raw.githubusercontent.com/K01dBy4spam935h/LarpSec-Prison-Life/main/"
 
 -- In-memory module cache so require() works without filesystem
 local cache = {}
@@ -19,89 +19,22 @@ local function fetch(path)
         return game:HttpGet(url)
     end)
     if not ok or not src or src == "" then
-        error("[LarpSec] Failed to fetch: " .. path)
+        error("[LarpSec] Failed to fetch: " .. path .. " (" .. tostring(src) .. ")")
+    end
+    -- GitHub sometimes returns HTML 404 pages; reject those
+    if type(src) == "string" and (src:sub(1, 1) == "<" or src:find("404:") or src:find("Not Found")) then
+        error("[LarpSec] 404 fetching: " .. path)
     end
     return src
-end
-
-local function loadModule(path)
-    if cache[path] then return cache[path] end
-    if loading[path] then
-        error("[LarpSec] Circular require: " .. path)
-    end
-    loading[path] = true
-    local src = fetch(path)
-    local fn, err = loadstring(src, "@" .. path)
-    if not fn then
-        loading[path] = nil
-        error("[LarpSec] Compile error in " .. path .. ": " .. tostring(err))
-    end
-    -- Custom environment with relative require
-    local env = setmetatable({
-        script = {
-            Parent = {
-                Parent = {
-                    Parent = nil, -- filled per path
-                }
-            }
-        },
-        require = function(mod)
-            -- Support both string paths and faux script.Parent chains
-            if type(mod) == "string" then
-                return loadModule(mod)
-            end
-            error("[LarpSec] Unsupported require target")
-        end,
-    }, { __index = getfenv() or _G })
-
-    -- Rewrite relative requires used in the codebase
-    -- Our modules use: require(script.Parent.X) style — we intercept via a path map
-    setfenv(fn, env)
-    local result = fn()
-    cache[path] = result
-    loading[path] = nil
-    return result
-end
-
--- Path map matching the require(script.Parent...) style used in modules
-local modules = {
-    ["Core/Services.lua"] = true,
-    ["Config/Defaults.lua"] = true,
-    ["Config/Manager.lua"] = true,
-    ["UI/Library.lua"] = true,
-    ["Features/Combat/SilentAim.lua"] = true,
-    ["Features/Combat/Aimbot.lua"] = true,
-    ["Features/Combat/Hitbox.lua"] = true,
-    ["Features/Combat/AntiTase.lua"] = true,
-    ["Features/Combat/GunHook.lua"] = true,
-    ["Features/Visuals/ESP.lua"] = true,
-    ["Features/Visuals/World.lua"] = true,
-    ["Features/Player/Movement.lua"] = true,
-    ["Features/Utility/HUD.lua"] = true,
-    ["Features/Utility/GunGrabber.lua"] = true,
-    ["Main.lua"] = true,
-}
-
--- Because modules use require(script.Parent...), we provide a smarter loader
--- that resolves relative to the current file path.
-local function makeRequire(currentPath)
-    return function(target)
-        if type(target) == "string" then
-            return loadModule(target)
-        end
-        -- Fallback: treat as already-resolved by our rewritten Main
-        error("[LarpSec] require() needs a string path in loadstring mode")
-    end
 end
 
 -- Preload everything with correct relative resolution by rewriting source on the fly
 local function fetchAndRewrite(path)
     local src = fetch(path)
-    -- Replace require(script.Parent.Parent.Parent.Core.Services) style with string requires
+    -- Replace require(script.Parent...) style with string requires
     src = src:gsub('require%(script%.Parent%.Parent%.Parent%.Core%.Services%)', 'require("Core/Services.lua")')
     src = src:gsub('require%(script%.Parent%.Parent%.Parent%.Config%.Defaults%)', 'require("Config/Defaults.lua")')
     src = src:gsub('require%(script%.Parent%.Defaults%)', 'require("Config/Defaults.lua")')
-    src = src:gsub('require%(script%.Parent%.Parent%.Parent%.Core%.Services%)', 'require("Core/Services.lua")')
     src = src:gsub('require%(script%.Parent%.SilentAim%)', 'require("Features/Combat/SilentAim.lua")')
     src = src:gsub('require%(script%.Core%.Services%)', 'require("Core/Services.lua")')
     src = src:gsub('require%(script%.Config%.Manager%)', 'require("Config/Manager.lua")')
