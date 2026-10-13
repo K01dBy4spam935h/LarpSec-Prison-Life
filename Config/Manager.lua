@@ -5,7 +5,7 @@
 ]]
 
 local HttpService = game:GetService("HttpService")
-local Defaults = require(script.Parent.Defaults)
+local Defaults = require("Config/Defaults.lua")
 
 local Manager = {}
 Manager.Current = nil
