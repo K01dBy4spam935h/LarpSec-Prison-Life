@@ -1,7 +1,7 @@
 --[[
     LarpSec - Prison Life v1
     Features/Utility/HUD.lua
-    Draggable FPS + Ping boxes (ping mimics Roblox official)
+    Draggable FPS + Ping (matches Roblox Performance Stats Network / Data Ping behavior)
 ]]
 
 local Services = require("Core/Services.lua")
@@ -10,6 +10,7 @@ local UserInputService = Services.UserInputService
 local Players = Services.Players
 local CoreGui = Services.CoreGui
 local Stats = Services.Stats
+local LocalPlayer = Services.LocalPlayer
 
 local HUD = {}
 HUD.Connections = {}
@@ -23,21 +24,27 @@ HUD.PingLabel = nil
 local function makeDraggable(frame)
     local dragging, dragStart, startPos
     frame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStart = input.Position
             startPos = frame.Position
         end
     end)
     frame.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
         end
     end)
     UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch) then
             local delta = input.Position - dragStart
-            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            frame.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
         end
     end)
 end
@@ -45,7 +52,7 @@ end
 local function createBox(name, pos, parent)
     local frame = Instance.new("Frame")
     frame.Name = name
-    frame.Size = UDim2.new(0, 90, 0, 28)
+    frame.Size = UDim2.new(0, 100, 0, 28)
     frame.Position = pos
     frame.BackgroundColor3 = Color3.fromRGB(20, 20, 22)
     frame.BackgroundTransparency = 0.25
@@ -74,6 +81,36 @@ local function createBox(name, pos, parent)
     return frame, lbl
 end
 
+-- Official-style ping:
+-- 1) Prefer Stats Network "Data Ping" (Shift+F3 / Performance Stats value)
+-- 2) Fallback to Player:GetNetworkPing()*1000 (pipe RTT only, usually lower)
+local function readPingMs()
+    local ping = nil
+
+    -- Data Ping (what Performance Stats "Ping" / network panel shows)
+    pcall(function()
+        local item = Stats.Network.ServerStatsItem["Data Ping"]
+        if item then
+            ping = item:GetValue()
+        end
+    end)
+
+    if type(ping) == "number" and ping > 0 then
+        return math.floor(ping + 0.5)
+    end
+
+    -- Fallback: engine network RTT
+    pcall(function()
+        ping = LocalPlayer:GetNetworkPing() * 1000
+    end)
+
+    if type(ping) == "number" and ping >= 0 then
+        return math.floor(ping + 0.5)
+    end
+
+    return 0
+end
+
 function HUD:Init(config)
     local gui = Instance.new("ScreenGui")
     gui.Name = "LarpSec_HUD"
@@ -82,7 +119,7 @@ function HUD:Init(config)
     gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     pcall(function() gui.Parent = CoreGui end)
     if not gui.Parent then
-        gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+        gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
     end
     self.Gui = gui
 
@@ -93,15 +130,15 @@ function HUD:Init(config)
     self.PingFrame, self.PingLabel = createBox("Ping", pingPos, gui)
 
     local frames = {}
-    local last = tick()
     table.insert(self.Connections, RunService.RenderStepped:Connect(function()
         local now = tick()
         table.insert(frames, now)
         while frames[1] and now - frames[1] > 1 do
             table.remove(frames, 1)
         end
-        local fps = #frames
+
         if self.FPSEnabled and self.FPSLabel then
+            local fps = #frames
             self.FPSLabel.Text = fps .. " FPS"
             if fps >= 55 then
                 self.FPSLabel.TextColor3 = Color3.fromRGB(80, 220, 120)
@@ -112,12 +149,8 @@ function HUD:Init(config)
             end
         end
 
-        -- Official-style ping (Data Ping from Stats)
-        local ping = 0
-        pcall(function()
-            ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
-        end)
         if self.PingEnabled and self.PingLabel then
+            local ping = readPingMs()
             self.PingLabel.Text = ping .. " ms"
             if ping < 80 then
                 self.PingLabel.TextColor3 = Color3.fromRGB(80, 220, 120)
