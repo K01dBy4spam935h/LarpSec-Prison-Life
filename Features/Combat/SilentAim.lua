@@ -8,6 +8,7 @@ local RunService = Services.RunService
 local Players = Services.Players
 local Camera = Services.Camera
 local LocalPlayer = Services.LocalPlayer
+local UserInputService = Services.UserInputService
 
 local SilentAim = {}
 SilentAim.Enabled = false
@@ -17,8 +18,9 @@ SilentAim.Connections = {}
 SilentAim.Target = nil
 
 local function createFOV()
-    local circle = Drawing and Drawing.new("Circle")
-    if not circle then return nil end
+    if not Drawing then return nil end
+    local ok, circle = pcall(Drawing.new, "Circle")
+    if not ok or not circle then return nil end
     circle.Thickness = 1.5
     circle.NumSides = 64
     circle.Radius = 120
@@ -43,17 +45,16 @@ function SilentAim:IsValidTarget(player)
     local filter = self.Config.TeamFilter
     if not filter[team] then return false end
     local root = Services.GetRoot(player)
-    if not root then return false end
-    local _, onScreen = Services.WorldToScreen(root.Position)
-    return onScreen
+    return root ~= nil
 end
 
 function SilentAim:GetClosest()
     local closest, closestDist = nil, self.Config.FOV
-    local mousePos = Services.UserInputService:GetMouseLocation()
+    local mousePos = UserInputService:GetMouseLocation()
     for _, player in ipairs(Players:GetPlayers()) do
         if self:IsValidTarget(player) then
-            local part = player.Character:FindFirstChild(self.Config.TargetPart) or Services.GetRoot(player)
+            local part = player.Character
+                and (player.Character:FindFirstChild(self.Config.TargetPart) or Services.GetRoot(player))
             if part then
                 local screen, onScreen = Services.WorldToScreen(part.Position)
                 if onScreen then
@@ -70,24 +71,27 @@ function SilentAim:GetClosest()
 end
 
 function SilentAim:Update()
-    if not self.FOVCircle then return end
     local cfg = self.Config
-    self.FOVCircle.Visible = self.Enabled and cfg.FOVVisible
+    if not cfg then return end
+
+    if self.FOVCircle then
+        self.FOVCircle.Visible = self.Enabled and cfg.FOVVisible
+        if self.Enabled then
+            local mouse = UserInputService:GetMouseLocation()
+            self.FOVCircle.Position = mouse
+            self.FOVCircle.Radius = cfg.FOV
+            if cfg.Rainbow then
+                self.FOVCircle.Color = Color3.fromHSV((tick() * 0.3) % 1, 1, 1)
+            else
+                local c = cfg.FOVColor
+                self.FOVCircle.Color = Color3.fromHSV(c.H, c.S, c.V)
+            end
+        end
+    end
+
     if not self.Enabled then
         self.Target = nil
         return
-    end
-
-    local mouse = Services.UserInputService:GetMouseLocation()
-    self.FOVCircle.Position = mouse
-    self.FOVCircle.Radius = cfg.FOV
-
-    if cfg.Rainbow then
-        local h = (tick() * 0.3) % 1
-        self.FOVCircle.Color = Color3.fromHSV(h, 1, 1)
-    else
-        local c = cfg.FOVColor
-        self.FOVCircle.Color = Color3.fromHSV(c.H, c.S, c.V)
     end
 
     self.Target = self:GetClosest()
@@ -95,20 +99,18 @@ end
 
 function SilentAim:GetAimPosition()
     if not self.Enabled or not self.Target then return nil end
-    if math.random(1, 100) > self.Config.Hitchance then return nil end
-    local part = self.Target.Character and self.Target.Character:FindFirstChild(self.Config.TargetPart)
-    if not part then
-        part = Services.GetRoot(self.Target)
-    end
+    if math.random(1, 100) > (self.Config.Hitchance or 100) then return nil end
+    local part = self.Target.Character
+        and (self.Target.Character:FindFirstChild(self.Config.TargetPart) or Services.GetRoot(self.Target))
     if not part then return nil end
     local pos = part.Position
     local vel = part.AssemblyLinearVelocity or Vector3.zero
-    pos = pos + vel * (self.Config.Prediction or 0.12)
-    return pos
+    return pos + vel * (self.Config.Prediction or 0.12)
 end
 
 function SilentAim:SetEnabled(v)
     self.Enabled = v
+    if not v then self.Target = nil end
 end
 
 function SilentAim:Destroy()
