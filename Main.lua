@@ -272,12 +272,10 @@ local gunList = GunGrabber:GetGunList()
 UI:CreateDropdown(utilTab, "Gun", gunList, CFG.Utility.GunGrabber.Selected or "AK-47", function(v)
     CFG.Utility.GunGrabber.Selected = v
 end)
-UI:CreateButton(utilTab, "TP to Gun", function()
+UI:CreateButton(utilTab, "Grab Gun", function()
     GunGrabber:Grab(CFG.Utility.GunGrabber.Selected or "AK-47")
 end)
-UI:CreateButton(utilTab, "TP Back", function()
-    GunGrabber:Return()
-end)
+UI:CreateLabel(utilTab, "Uses ItemHandler — no teleport")
 
 -- ========== SETTINGS TAB ==========
 local setTab = UI:CreateTab("Settings")
