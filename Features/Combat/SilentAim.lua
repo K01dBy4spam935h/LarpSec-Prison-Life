@@ -1,6 +1,7 @@
 --[[
     LarpSec - Prison Life v1
     Features/Combat/SilentAim.lua
+    Target is the HitPart (BasePart), not the Player — matches PL ShootEvent format
 ]]
 
 local Services = require("Core/Services.lua")
@@ -15,7 +16,7 @@ SilentAim.Enabled = false
 SilentAim.Config = nil
 SilentAim.FOVCircle = nil
 SilentAim.Connections = {}
-SilentAim.Target = nil
+SilentAim.Target = nil -- BasePart (Head / Torso / etc.)
 
 local function createFOV()
     if not Drawing then return nil end
@@ -33,41 +34,44 @@ end
 function SilentAim:Init(config)
     self.Config = config
     self.FOVCircle = createFOV()
-    table.insert(self.Connections, RunService.RenderStepped:Connect(function()
+    table.insert(self.Connections, RunService.Heartbeat:Connect(function()
         self:Update()
     end))
 end
 
-function SilentAim:IsValidTarget(player)
+function SilentAim:IsValidPlayer(player)
     if player == LocalPlayer then return false end
     if not Services.IsAlive(player) then return false end
+    local char = player.Character
+    if not char or char:FindFirstChildOfClass("ForceField") then return false end
     local team = Services.GetTeam(player)
     local filter = self.Config.TeamFilter
     if not filter[team] then return false end
-    local root = Services.GetRoot(player)
-    return root ~= nil
+    return true
 end
 
-function SilentAim:GetClosest()
-    local closest, closestDist = nil, self.Config.FOV
+function SilentAim:GetClosestPart()
+    local closestPart, closestDist = nil, self.Config.FOV or 120
     local mousePos = UserInputService:GetMouseLocation()
+    local partName = self.Config.TargetPart or "Head"
+
     for _, player in ipairs(Players:GetPlayers()) do
-        if self:IsValidTarget(player) then
-            local part = player.Character
-                and (player.Character:FindFirstChild(self.Config.TargetPart) or Services.GetRoot(player))
+        if self:IsValidPlayer(player) then
+            local char = player.Character
+            local part = char and (char:FindFirstChild(partName) or char:FindFirstChild("Head") or Services.GetRoot(player))
             if part then
-                local screen, onScreen = Services.WorldToScreen(part.Position)
+                local screen, onScreen = Camera:WorldToViewportPoint(part.Position)
                 if onScreen then
                     local dist = (Vector2.new(screen.X, screen.Y) - mousePos).Magnitude
                     if dist < closestDist then
                         closestDist = dist
-                        closest = player
+                        closestPart = part
                     end
                 end
             end
         end
     end
-    return closest
+    return closestPart
 end
 
 function SilentAim:Update()
@@ -77,8 +81,7 @@ function SilentAim:Update()
     if self.FOVCircle then
         self.FOVCircle.Visible = self.Enabled and cfg.FOVVisible
         if self.Enabled then
-            local mouse = UserInputService:GetMouseLocation()
-            self.FOVCircle.Position = mouse
+            self.FOVCircle.Position = UserInputService:GetMouseLocation()
             self.FOVCircle.Radius = cfg.FOV
             if cfg.Rainbow then
                 self.FOVCircle.Color = Color3.fromHSV((tick() * 0.3) % 1, 1, 1)
@@ -94,18 +97,15 @@ function SilentAim:Update()
         return
     end
 
-    self.Target = self:GetClosest()
+    self.Target = self:GetClosestPart()
 end
 
-function SilentAim:GetAimPosition()
-    if not self.Enabled or not self.Target then return nil end
-    if math.random(1, 100) > (self.Config.Hitchance or 100) then return nil end
-    local part = self.Target.Character
-        and (self.Target.Character:FindFirstChild(self.Config.TargetPart) or Services.GetRoot(self.Target))
-    if not part then return nil end
-    local pos = part.Position
-    local vel = part.AssemblyLinearVelocity or Vector3.zero
-    return pos + vel * (self.Config.Prediction or 0.12)
+-- hitchance gate used by GunHook
+function SilentAim:ShouldHit()
+    if not self.Enabled or not self.Target then return false end
+    local hc = self.Config.Hitchance or 100
+    if hc >= 100 then return true end
+    return math.random(1, 100) <= hc
 end
 
 function SilentAim:SetEnabled(v)
