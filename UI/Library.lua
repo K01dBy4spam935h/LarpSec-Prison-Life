@@ -185,6 +185,15 @@ function Library.new(title)
         end
     end)
 
+    -- Right Shift toggles menu visibility
+    table.insert(self.Connections, UserInputService.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
+        if input.KeyCode == Enum.KeyCode.RightShift then
+            self.Open = not self.Open
+            main.Visible = self.Open
+        end
+    end))
+
     -- Sidebar
     local sidebar = Instance.new("Frame")
     sidebar.Name = "Sidebar"
