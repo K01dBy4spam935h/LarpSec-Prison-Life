@@ -1,7 +1,7 @@
 --[[
     LarpSec - Prison Life v1
     Features/Combat/SilentAim.lua
-    Target is the HitPart (BasePart), not the Player — matches PL ShootEvent format
+    Target = closest BasePart in FOV (used by castRay hook)
 ]]
 
 local Services = require("Core/Services.lua")
@@ -16,7 +16,7 @@ SilentAim.Enabled = false
 SilentAim.Config = nil
 SilentAim.FOVCircle = nil
 SilentAim.Connections = {}
-SilentAim.Target = nil -- BasePart (Head / Torso / etc.)
+SilentAim.Target = nil
 
 local function createFOV()
     if not Drawing then return nil end
@@ -45,8 +45,7 @@ function SilentAim:IsValidPlayer(player)
     local char = player.Character
     if not char or char:FindFirstChildOfClass("ForceField") then return false end
     local team = Services.GetTeam(player)
-    local filter = self.Config.TeamFilter
-    if not filter[team] then return false end
+    if not self.Config.TeamFilter[team] then return false end
     return true
 end
 
@@ -100,7 +99,6 @@ function SilentAim:Update()
     self.Target = self:GetClosestPart()
 end
 
--- hitchance gate used by GunHook
 function SilentAim:ShouldHit()
     if not self.Enabled or not self.Target then return false end
     local hc = self.Config.Hitchance or 100
