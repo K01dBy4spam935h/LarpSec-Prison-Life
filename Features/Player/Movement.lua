@@ -1,13 +1,12 @@
 --[[
     LarpSec - Prison Life v1
     Features/Player/Movement.lua
-    Speed (CFrame method for AC bypass), Jump, InfJump, Noclip, Fly, VehicleFly, Invis
+    Speed (CFrame), Jump, InfJump, Noclip, Fly, VehicleFly, Invis
 ]]
 
 local Services = require("Core/Services.lua")
 local RunService = Services.RunService
 local UserInputService = Services.UserInputService
-local Players = Services.Players
 local LocalPlayer = Services.LocalPlayer
 local Workspace = Services.Workspace
 
@@ -33,6 +32,16 @@ local function getHum()
     return Services.GetHumanoid(LocalPlayer)
 end
 
+local function setCharCollide(state)
+    local char = LocalPlayer.Character
+    if not char then return end
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = state
+        end
+    end
+end
+
 function Movement:Init(config)
     self.Config = config
 
@@ -48,7 +57,8 @@ function Movement:Init(config)
                 local hum = getHum()
                 local root = getRoot()
                 if hum and root then
-                    root.Velocity = Vector3.new(root.Velocity.X, hum.JumpPower > 0 and hum.JumpPower or 50, root.Velocity.Z)
+                    local power = hum.JumpPower > 0 and hum.JumpPower or 50
+                    root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, power, root.AssemblyLinearVelocity.Z)
                 end
             end
         end
@@ -64,21 +74,22 @@ function Movement:Init(config)
         if input.KeyCode == Enum.KeyCode.LeftControl then self.Keys.Ctrl = false end
     end))
 
+    -- Noclip must run on Stepped (physics step) every frame while enabled
+    table.insert(self.Connections, RunService.Stepped:Connect(function()
+        if self.Noclip then
+            setCharCollide(false)
+        end
+    end))
+
     table.insert(self.Connections, RunService.Heartbeat:Connect(function(dt)
         self:Tick(dt)
     end))
 
-    table.insert(self.Connections, RunService.Stepped:Connect(function()
-        if self.Noclip then
-            local char = LocalPlayer.Character
-            if char then
-                for _, part in ipairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
-                end
-            end
-        end
+    -- re-apply noclip on respawn
+    table.insert(self.Connections, LocalPlayer.CharacterAdded:Connect(function()
+        task.wait(0.15)
+        if self.Noclip then setCharCollide(false) end
+        if self.InvisOn then self:SetInvis(true) end
     end))
 end
 
@@ -87,7 +98,6 @@ function Movement:Tick(dt)
     local hum = getHum()
     if not root or not hum then return end
 
-    -- Speed via CFrame (safer than WalkSpeed property for PL detectors)
     if self.SpeedOn and not self.FlyOn then
         local cam = Workspace.CurrentCamera
         local dir = Vector3.zero
@@ -98,34 +108,32 @@ function Movement:Tick(dt)
         dir = Vector3.new(dir.X, 0, dir.Z)
         if dir.Magnitude > 0 then
             dir = dir.Unit
-            local speed = self.Config.Speed.Value or 28
-            -- slight variance to look less robotic
-            speed = speed * (0.97 + math.random() * 0.06)
+            local speed = (self.Config.Speed.Value or 28) * (0.97 + math.random() * 0.06)
             root.CFrame = root.CFrame + dir * speed * dt
         end
     end
 
-    -- Jump power
     if self.JumpOn then
-        hum.JumpPower = self.Config.JumpPower.Value or 60
-        hum.JumpHeight = (self.Config.JumpPower.Value or 60) / 7.5
+        local jp = self.Config.JumpPower.Value or 60
+        hum.JumpPower = jp
+        pcall(function() hum.JumpHeight = jp / 7.5 end)
     end
 
-    -- Fly
     if self.FlyOn then
         self:DoFly(dt)
     end
 
-    -- Vehicle Fly
     if self.VehicleFlyOn then
         self:DoVehicleFly(dt)
     end
 
-    -- Invisibility (client sided)
     if self.InvisOn then
-        for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
-            if part:IsA("BasePart") or part:IsA("Decal") then
-                part.LocalTransparencyModifier = 1
+        local char = LocalPlayer.Character
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") or part:IsA("Decal") then
+                    part.LocalTransparencyModifier = 1
+                end
             end
         end
     end
@@ -163,23 +171,17 @@ function Movement:DoFly(dt)
     if self.Keys.Ctrl then dir = dir - Vector3.new(0, 1, 0) end
 
     local speed = self.Config.Fly.Speed or 50
-    if dir.Magnitude > 0 then
-        self.BodyVel.Velocity = dir.Unit * speed
-    else
-        self.BodyVel.Velocity = Vector3.zero
-    end
+    self.BodyVel.Velocity = dir.Magnitude > 0 and dir.Unit * speed or Vector3.zero
 end
 
 function Movement:StopFly()
     local hum = getHum()
     if hum then hum.PlatformStand = false end
-    if self.BodyVel then self.BodyVel:Destroy() self.BodyVel = nil end
-    if self.BodyGyro then self.BodyGyro:Destroy() self.BodyGyro = nil end
+    if self.BodyVel then pcall(function() self.BodyVel:Destroy() end) self.BodyVel = nil end
+    if self.BodyGyro then pcall(function() self.BodyGyro:Destroy() end) self.BodyGyro = nil end
 end
 
 function Movement:DoVehicleFly(dt)
-    local char = LocalPlayer.Character
-    if not char then return end
     local hum = getHum()
     if not hum or not hum.SeatPart then return end
     local seat = hum.SeatPart
@@ -200,13 +202,10 @@ function Movement:DoVehicleFly(dt)
     local speed = self.Config.VehicleFly.Speed or 80
     if dir.Magnitude > 0 then
         primary.AssemblyLinearVelocity = dir.Unit * speed
-        primary.CFrame = CFrame.lookAt(primary.Position, primary.Position + dir)
     end
 end
 
-function Movement:SetSpeed(v)
-    self.SpeedOn = v
-end
+function Movement:SetSpeed(v) self.SpeedOn = v end
 
 function Movement:SetJump(v)
     self.JumpOn = v
@@ -214,39 +213,34 @@ function Movement:SetJump(v)
         local hum = getHum()
         if hum then
             hum.JumpPower = 50
-            hum.JumpHeight = 7.2
+            pcall(function() hum.JumpHeight = 7.2 end)
         end
     end
 end
 
-function Movement:SetInfJump(v)
-    self.InfJump = v
-end
+function Movement:SetInfJump(v) self.InfJump = v end
 
 function Movement:SetNoclip(v)
     self.Noclip = v
     if not v then
+        setCharCollide(true)
+        -- root should stay non-collide usually; force limbs on
         local char = LocalPlayer.Character
         if char then
-            for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                    part.CanCollide = true
-                end
-            end
+            local root = char:FindFirstChild("HumanoidRootPart")
+            if root then root.CanCollide = false end
         end
+    else
+        setCharCollide(false)
     end
 end
 
 function Movement:SetFly(v)
     self.FlyOn = v
-    if not v then
-        self:StopFly()
-    end
+    if not v then self:StopFly() end
 end
 
-function Movement:SetVehicleFly(v)
-    self.VehicleFlyOn = v
-end
+function Movement:SetVehicleFly(v) self.VehicleFlyOn = v end
 
 function Movement:SetInvis(v)
     self.InvisOn = v
